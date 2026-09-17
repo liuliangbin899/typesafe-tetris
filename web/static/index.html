@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TypeSafe AI 俄罗斯方块 </title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+  <!-- 顶部主导航栏 -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-logo">✦</div>
+      <div class="brand-text">
+        <h1>TypeSafe AI 俄罗斯方块</h1>
+        <span class="sub-text">全链路透明实时决策驾驶舱 · System One 架构</span>
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <div class="ws-status" id="wsStatus">
+        <span class="status-dot"></span>
+        <span class="status-text">实时连接中...</span>
+      </div>
+
+      <!-- 实时推理耗时状态卡片 -->
+      <div class="latency-badge" id="navLatencyBadge" title="TypeSafe System One 模型单次决策耗时">
+        <span class="latency-pulse"></span>
+        <span class="latency-label">⚡ 推理耗时:</span>
+        <span class="latency-val" id="navLatencyVal">12.5 ms</span>
+      </div>
+
+      <!-- 模式分段选择器 (支持鼠标直接点击切换 / 键盘 A 键快速切换) -->
+      <div class="mode-segmented-control" id="modeControl">
+        <button class="seg-btn" id="segBtnManual" data-mode="manual" title="鼠标点击切换为人类操控模式 (按键盘 [M] 或 [A])">
+          <span class="icon">👤</span>
+          <span class="label">人类操控</span>
+        </button>
+        <button class="seg-btn active" id="segBtnAi" data-mode="ai" title="鼠标点击切换为 AI 自动驾驶模式 (按键盘 [A])">
+          <span class="icon">🤖</span>
+          <span class="label">AI 自动驾驶</span>
+        </button>
+      </div>
+
+      <!-- AI 执行速度调节分段器 (支持鼠标点击切换 3 档速度) -->
+      <div class="speed-segmented-control" id="aiSpeedControl" title="调节 AI 动作执行速度步频">
+        <span class="speed-label">速度:</span>
+        <button class="speed-btn" data-speed="120" title="慢速观摩 (120ms/步)">🐢 慢速</button>
+        <button class="speed-btn active" data-speed="40" title="标准巡航 (40ms/步)">⚡ 标准</button>
+        <button class="speed-btn" data-speed="10" title="极速风暴 (10ms/步)">🚀 极速</button>
+      </div>
+
+      <!-- 策略选择下拉菜单 (支持鼠标点选 4 大策略 / 键盘 Q 键轮转) -->
+      <div class="strategy-dropdown" id="strategyDropdown">
+        <button class="btn btn-strategy" id="btnStrategyDropdown" type="button" title="点击展开策略选项列表">
+          <span class="icon">🎯</span>
+          <span class="prefix">策略:</span>
+          <span class="strategy-name" id="topStrategyName">稳扎稳打平稳通关</span>
+          <span class="arrow">▾</span>
+          <span class="kbd-badge">[ Q ]</span>
+        </button>
+
+        <div class="strategy-menu" id="strategyMenu">
+          <div class="menu-header">🎯 选择通关策略意图 (鼠标直接点击)</div>
+          <div class="menu-item active" data-value="稳扎稳打平稳通关">
+            <span class="item-icon">🛡️</span>
+            <div class="item-body">
+              <div class="item-title">稳扎稳打平稳通关</div>
+              <div class="item-sub">填平地表，控制最高行，极致稳健</div>
+            </div>
+            <span class="item-check">✓</span>
+          </div>
+          <div class="menu-item" data-value="全力组织Tetris大招">
+            <span class="item-icon">⚡</span>
+            <div class="item-body">
+              <div class="item-title">全力组织Tetris大招</div>
+              <div class="item-sub">右侧留 1 列深井，积攒 I 块 4 消爆发</div>
+            </div>
+            <span class="item-check">✓</span>
+          </div>
+          <div class="menu-item" data-value="极致消行冲刺高分">
+            <span class="item-icon">🔥</span>
+            <div class="item-body">
+              <div class="item-title">极致消行冲刺高分</div>
+              <div class="item-sub">有行即消，积极构造多行连锁与连击</div>
+            </div>
+            <span class="item-check">✓</span>
+          </div>
+          <div class="menu-item" data-value="绝境极限降高求生">
+            <span class="item-icon">🚨</span>
+            <div class="item-body">
+              <div class="item-title">绝境极限降高求生</div>
+              <div class="item-sub">最高防守优先级，全力降低堆叠危险</div>
+            </div>
+            <span class="item-check">✓</span>
+          </div>
+        </div>
+      </div>
+
+
+      <button class="btn btn-secondary" id="btnPause">
+        <span class="icon">⏸</span>
+        <span class="text">暂停</span>
+        <span class="kbd-badge">[ P ]</span>
+      </button>
+
+      <button class="btn btn-secondary" id="btnRestart">
+        <span class="icon">🔄</span>
+        <span class="text">重开</span>
+        <span class="kbd-badge">[ R ]</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主工作台：四栏式视网膜超清布局 -->
+  <main class="dashboard-container">
+
+    <!-- 栏 1：战况与背包 (左侧栏) -->
+    <aside class="panel left-panel">
+      <!-- HOLD 暂存区 -->
+      <section class="card hold-card">
+        <div class="card-header">
+          <h3>暂存区 (HOLD)</h3>
+          <span class="kbd-hint">[ C ] 键</span>
+        </div>
+        <div class="preview-box">
+          <canvas id="holdCanvas" width="100" height="70"></canvas>
+        </div>
+      </section>
+
+      <!-- NEXT 预备队列 -->
+      <section class="card next-card">
+        <div class="card-header">
+          <h3>下一个 (NEXT)</h3>
+        </div>
+        <div class="next-queue" id="nextQueueContainer">
+          <canvas id="nextCanvas0" width="80" height="50"></canvas>
+          <canvas id="nextCanvas1" width="80" height="50"></canvas>
+          <canvas id="nextCanvas2" width="80" height="50"></canvas>
+        </div>
+      </section>
+
+      <!-- 战绩统计 -->
+      <section class="card stats-card">
+        <div class="card-header">
+          <h3>战绩数据</h3>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-label">当前得分</span>
+            <span class="stat-val gold" id="valScore">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">消除总行数</span>
+            <span class="stat-val" id="valLines">0 行</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">速度等级</span>
+            <span class="stat-val cyan" id="valLevel">1 级</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">连击数</span>
+            <span class="stat-val purple" id="valCombo">0 Combo</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 快捷键指南 -->
+      <section class="card shortcuts-card">
+        <div class="card-header">
+          <h3>键盘控制指南</h3>
+        </div>
+        <ul class="shortcut-list">
+          <li><span class="key">[ A ]</span><span class="desc">切换 AI 自动驾驶</span></li>
+          <li><span class="key">[ Q ]</span><span class="desc">轮换策略意图</span></li>
+          <li><span class="key">[ 空格 ]</span><span class="desc">硬降触底锁定</span></li>
+          <li><span class="key">[ ← / → ]</span><span class="desc">左右平移 (DAS/ARR)</span></li>
+          <li><span class="key">[ ↓ ]</span><span class="desc">加速软降</span></li>
+          <li><span class="key">[ ↑ / Z ]</span><span class="desc">顺时针 / 逆时针旋转</span></li>
+          <li><span class="key">[ C ]</span><span class="desc">暂存方块 (Hold)</span></li>
+          <li><span class="key">[ P / R ]</span><span class="desc">暂停 / 重新开始</span></li>
+        </ul>
+      </section>
+    </aside>
+
+    <!-- 栏 2：主棋盘战场 (Arena) -->
+    <section class="panel board-panel">
+      <div class="board-wrapper">
+        <div class="board-badge" id="boardBadge">
+          <span class="badge-dot"></span>
+          <span class="badge-text" id="badgeText">● 🤖 TypeSafe AI 托管中</span>
+        </div>
+
+        <canvas id="tetrisCanvas" width="300" height="600"></canvas>
+
+        <!-- 游戏暂停/结束主棋盘局域浮层 (绝不遮挡分析看板) -->
+        <div class="board-overlay hidden" id="boardOverlay">
+          <div class="overlay-card" id="overlayCard">
+            <h2 id="overlayTitle">游戏已暂停</h2>
+            <div class="overlay-msg" id="overlayMsg">按 [ P ] 继续游戏</div>
+            <button class="overlay-btn" id="overlayBtn">继续游戏</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 屏幕手动控制器 (支持鼠标直接点击操控 / 触控即玩) -->
+      <div class="virtual-gamepad" id="virtualGamepad">
+        <div class="pad-header">
+          <span class="pad-title">🎮 屏幕手动控制台</span>
+          <span class="pad-hint">鼠标直接点选操控 · 自动平滑接管</span>
+        </div>
+        <div class="pad-grid">
+          <!-- 上排: 暂存、逆时针旋转、顺时针旋转 -->
+          <div class="pad-row pad-actions">
+            <button class="pad-btn pad-hold" data-action="HOLD" title="暂存当前方块 (快捷键 [C])">
+              <span class="pad-icon">🔄</span>
+              <span class="pad-text">暂存 [C]</span>
+            </button>
+            <button class="pad-btn pad-rot" data-action="ROTATE_CCW" title="逆时针旋转 90° (快捷键 [Z])">
+              <span class="pad-icon">⟲</span>
+              <span class="pad-text">逆旋 [Z]</span>
+            </button>
+            <button class="pad-btn pad-rot" data-action="ROTATE_CW" title="顺时针旋转 90° (快捷键 [↑] 或 [X])">
+              <span class="pad-icon">⟳</span>
+              <span class="pad-text">顺旋 [↑]</span>
+            </button>
+          </div>
+
+          <!-- 中排方向十字键: 左移、软降、右移 -->
+          <div class="pad-row pad-dpad">
+            <button class="pad-btn pad-move" data-action="MOVE_LEFT" title="向左平移 1 格 (快捷键 [←])">
+              <span class="pad-icon">◀</span>
+              <span class="pad-text">左移</span>
+            </button>
+            <button class="pad-btn pad-move" data-action="SOFT_DROP" title="加速下落软降 (快捷键 [↓])">
+              <span class="pad-icon">▼</span>
+              <span class="pad-text">软降</span>
+            </button>
+            <button class="pad-btn pad-move" data-action="MOVE_RIGHT" title="向右平移 1 格 (快捷键 [→])">
+              <span class="pad-icon">▶</span>
+              <span class="pad-text">右移</span>
+            </button>
+          </div>
+
+          <!-- 底排大按键: 瞬间硬降 (Hard Drop) -->
+          <div class="pad-row pad-drop-row">
+            <button class="pad-btn pad-harddrop" data-action="HARD_DROP" title="瞬间直达底端锁定 (快捷键 [空格])">
+              <span class="pad-icon">⚡</span>
+              <span class="pad-text">瞬间硬降 (空格)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 栏 3：TypeSafe 输入端 (Question & Assembled State) -->
+    <section class="panel state-panel">
+      <div class="panel-header">
+        <div class="title-wrap">
+          <h2>TypeSafe 输入端 (Question & State)</h2>
+          <span class="desc">发送给 Jev System One 模型的上下文参数</span>
+        </div>
+      </div>
+
+      <!-- 用户 Question 策略配置 (紧凑型策略下拉选择组件，极低纵向高度占用) -->
+      <div class="card question-card compact-question-card">
+        <div class="question-header-row">
+          <div class="header-left">
+            <span class="badge-tag">User Question</span>
+            <span class="question-title">策略意图:</span>
+          </div>
+          <div class="select-wrapper">
+            <select id="strategySelect" class="strategy-select" title="选择 AI 决策的通关策略">
+              <option value="稳扎稳打平稳通关">🛡️ 稳扎稳打平稳通关 (平整堆叠 · 低空洞)</option>
+              <option value="全力组织Tetris大招">⚡ 全力组织Tetris大招 (右井蓄力 · 四消爆发)</option>
+              <option value="极致消行冲刺高分">🔥 极致消行冲刺高分 (连击消除 · 极速收割)</option>
+              <option value="绝境极限降高求生">🚨 绝境极限降高求生 (全力压高 · 危机自救)</option>
+            </select>
+          </div>
+        </div>
+        <div class="active-question-subline">
+          <span class="subline-label">生效 Prompt:</span>
+          <span class="subline-val" id="activeQuestionText">"稳扎稳打平稳通关"</span>
+        </div>
+      </div>
+
+
+      <!-- 组装的结构化 State 树 (带语法高亮与折叠) -->
+      <div class="card state-card">
+        <div class="card-header">
+          <h3>组装给 TypeSafe 的上下文 State (Dict)</h3>
+          <span class="badge-tag cyan">Context Tree</span>
+        </div>
+        <div class="code-container" id="stateCodeView">
+          <pre><code id="jsonStateContent">// 正在同步 State 结构...</code></pre>
+        </div>
+      </div>
+
+      <!-- 原语提问指令 (Instructions) -->
+      <div class="card prompt-card">
+        <div class="card-header">
+          <h3>原语提问 Prompt 指令 (Instructions)</h3>
+          <span class="badge-tag purple">Prompt Specs</span>
+        </div>
+        <div class="prompt-specs" id="promptSpecsContainer">
+          <div class="spec-item">
+            <span class="spec-name">[Choice 落点抉择]</span>
+            <p class="spec-desc">根据确定的战术模式和 user_question，从 candidates 备选落点中挑选综合收益最高、最稳妥的最佳落点方案</p>
+          </div>
+          <div class="spec-item">
+            <span class="spec-name">[Choice 战术模式]</span>
+            <p class="spec-desc">结合 user_question 与当前局势，在给定战术模式中进行选择</p>
+          </div>
+          <div class="spec-item">
+            <span class="spec-name">[Noul 危机与换块门控]</span>
+            <p class="spec-desc">分析 board_metrics 与 inventory，判定是否处于崩盘边缘或建议换块</p>
+          </div>
+          <div class="spec-item">
+            <span class="spec-name">[Score 局面健康态势]</span>
+            <p class="spec-desc">评估当前棋盘的整体健康度与可持续发展态势 (1~5 级)</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 栏 4：TypeSafe 输出端 (三原语决策与全量概率矩阵) -->
+    <section class="panel decision-panel">
+      <div class="panel-header">
+        <div class="title-wrap">
+          <h2>TypeSafe 输出端 (决策与全量概率)</h2>
+          <span class="desc">Jev System One 实时推理生成的判断与概率分布</span>
+        </div>
+        <div class="panel-header-badges">
+          <span class="badge-latency-pill" id="agentLatencyPill" title="TypeSafe 决策推理延迟">
+            <span class="latency-pulse-dot"></span>
+            <span class="pill-label">推理耗时:</span>
+            <span class="pill-val" id="agentLatencyVal">12.5 ms</span>
+          </span>
+          <span class="badge-status-pill" id="agentBadgePill">🟢 自动驾驶托管中</span>
+        </div>
+      </div>
+
+      <!-- 1. [Choice] 候选落点竞争概率矩阵 -->
+      <div class="card choice-cands-card">
+        <div class="card-header">
+          <h3>1. [Choice] 候选落点竞争概率矩阵</h3>
+          <span class="confidence-tag" id="placementConfidence">选定置信度: 75%</span>
+        </div>
+        <div class="cands-list" id="candsList">
+          <!-- 动态渲染候选列表 -->
+        </div>
+      </div>
+
+      <!-- 2. [Choice] 宏观战术模式概率分布 -->
+      <div class="card choice-tactic-card">
+        <div class="card-header">
+          <h3>2. [Choice] 宏观战术模式概率分布</h3>
+        </div>
+        <div class="tactics-grid" id="tacticsGrid">
+          <!-- 动态渲染 4 大战术分布 -->
+        </div>
+      </div>
+
+      <!-- 3. [Noul] 临界条件门控概率 -->
+      <div class="card noul-card">
+        <div class="card-header">
+          <h3>3. [Noul] 临界条件门控概率 (阈值: 50%)</h3>
+        </div>
+        <div class="noul-metrics">
+          <div class="noul-row">
+            <span class="noul-label">危机避险 (Crisis Danger):</span>
+            <span class="noul-val" id="noulCrisisVal">1.0%</span>
+            <div class="noul-meter">
+              <div class="meter-bar" id="meterCrisisBar" style="width: 1%;"></div>
+              <div class="threshold-line" style="left: 50%;"></div>
+            </div>
+            <span class="noul-tag safe" id="noulCrisisTag">【安全稳定】</span>
+          </div>
+
+          <div class="noul-row">
+            <span class="noul-label">暂存置换 (Hold Needed):</span>
+            <span class="noul-val" id="noulHoldVal">12.0%</span>
+            <div class="noul-meter">
+              <div class="meter-bar" id="meterHoldBar" style="width: 12%;"></div>
+              <div class="threshold-line" style="left: 50%;"></div>
+            </div>
+            <span class="noul-tag neutral" id="noulHoldTag">【维持当前块】</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. [Score] 局面健康态势 5 级直方图 -->
+      <div class="card score-card">
+        <div class="card-header">
+          <h3>4. [Score] 局面健康态势 5 级分布</h3>
+          <span class="score-stars" id="scoreStars">★★★★★ 5.0 / 5.0 级</span>
+        </div>
+        <div class="score-histogram" id="scoreHistogram">
+          <!-- 1~5 级柱状图动态渲染 -->
+        </div>
+      </div>
+
+      <!-- 推导结论总结 -->
+      <div class="card summary-card">
+        <div class="summary-icon">💡</div>
+        <div class="summary-content">
+          <span class="summary-label">推导结论：</span>
+          <span class="summary-text" id="summaryText">战术【填平底盘】：选定最优方案 c0，平整堆叠。</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+
+</html>

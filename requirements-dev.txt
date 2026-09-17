@@ -1,0 +1,6 @@
+# Development & Testing Dependencies
+-r requirements.txt
+pytest>=8.0.0
+pytest-mock>=3.12.0
+pytest-asyncio>=0.23.0
+ruff>=0.3.0
